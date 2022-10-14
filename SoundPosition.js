@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SoundPosition = void 0;
-const Sound_1 = require("./Sound");
 /**
  * Like three.js' Vector3
  */
@@ -40,4 +39,7 @@ class SoundPosition {
     }
 }
 exports.SoundPosition = SoundPosition;
-var snd = new Sound_1.Sound("Hello");
+if (window) {
+    // @ts-ignore
+    window.SoundPosition = SoundPosition;
+}

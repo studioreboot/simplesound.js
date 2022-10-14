@@ -43,7 +43,31 @@ declare class Sound {
     set pos(p: SoundPosition);
     get volume(): number;
     set volume(v: number);
+    get currentTime(): number;
     get pitch(): number;
+    /**
+     * Returns the duration in seconds of the Sound
+     *
+     * (NOTE: when you change pitch or speed this value
+     * won't change. you might need to do math to get the
+     * duration with pitch.)
+     *
+     * If the Sound hasn't loaded fully yet
+     * you will get 0
+     */
+    get duration(): number;
+    /**
+     * Returns the number of channels in the Sound
+     *
+     * If the Sound hasn't loaded fully returns 0
+     */
+    get numOfChannels(): number;
+    /**
+     * Returns the sample rate of the Sound
+     *
+     * If the Sound hasn't loaded fully returns 0
+     */
+    get sampleRate(): number;
     set pitch(p: number);
     /**
      * Returns the Stero Pan of the Sound.
@@ -76,6 +100,22 @@ declare class Sound {
      * *(including the ones the developer specified)*
      */
     linkNodes(): void;
+    /**
+     * Adds the specified node at the front.
+     *
+     * *(the last effect for the sound to
+     * go through before reaching the main effects)*
+     *
+     * @param node The node to add
+     */
+    pushNode(node: AudioNode): void;
+    /**
+     * Removes a node from the stack
+     * If no node is provided it will pop the first effect from the stack.
+     * @param node The node to remove from the node stack (OPTIONAL)
+     * @returns The AudioNode or null
+     */
+    popNode(node?: AudioNode): AudioNode | null;
     private getSoundBuffer;
     private makeSourceNode;
     /**

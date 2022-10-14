@@ -1,10 +1,10 @@
 {
-  "name": "simplsnd",
+  "name": "simplesound",
   "version": "1.0.0",
   "description": "A (primitive) way of playing sounds that can be extended to your liking",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "builddist": "webpack"
   },
   "types": "index.d.ts",
   "keywords": [

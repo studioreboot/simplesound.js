@@ -48,6 +48,9 @@ class SoundPosition {
     }
 }
 
-var snd = new Sound("Hello");
-
 export { SoundPosition }
+
+if (window) {
+    // @ts-ignore
+    window.SoundPosition = SoundPosition;
+}

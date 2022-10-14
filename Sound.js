@@ -83,11 +83,49 @@ class Sound {
         this._config.volume = v / 100; // for some reason, it can go above 1?
         this.configureNodes();
     }
+    get currentTime() {
+        return this.context.currentTime;
+    }
     get pitch() {
-        return this._config.pitch * 100;
+        return this._config.pitch;
+    }
+    /**
+     * Returns the duration in seconds of the Sound
+     *
+     * (NOTE: when you change pitch or speed this value
+     * won't change. you might need to do math to get the
+     * duration with pitch.)
+     *
+     * If the Sound hasn't loaded fully yet
+     * you will get 0
+     */
+    get duration() {
+        if (!this.buffer)
+            return 0;
+        return this.buffer.duration;
+    }
+    /**
+     * Returns the number of channels in the Sound
+     *
+     * If the Sound hasn't loaded fully returns 0
+     */
+    get numOfChannels() {
+        if (!this.buffer)
+            return 0;
+        return this.buffer.numberOfChannels;
+    }
+    /**
+     * Returns the sample rate of the Sound
+     *
+     * If the Sound hasn't loaded fully returns 0
+     */
+    get sampleRate() {
+        if (!this.buffer)
+            return 0;
+        return this.buffer.sampleRate;
     }
     set pitch(p) {
-        this._config.pitch = p / 100;
+        this._config.pitch = p;
         this.configureNodes();
     }
     /**
@@ -120,11 +158,12 @@ class Sound {
      * the Sound. (wheather playing or not.)
      */
     configureNodes() {
-        this.gain.gain.value = this._config.volume;
+        // delay by 2 so the browser isn't stupid.
+        this.gain.gain.setValueAtTime(this._config.volume, this.currentTime);
         this._pos.updateSoundPosition(this);
-        this.steroPanner.pan.value = this._config.pan;
+        this.steroPanner.pan.setValueAtTime(this._config.pan, this.currentTime);
         if (this.source) {
-            this.source.detune.value = this._config.pitch;
+            this.source.detune.setValueAtTime(this._config.pitch, this.currentTime);
             this.source.loop = this._config.loop;
         }
     }
@@ -154,13 +193,16 @@ class Sound {
         nodesToUnlink = nodesToUnlink.concat(this._connectedNodes);
         nodesToUnlink = nodesToUnlink.concat(this.source);
         nodesToUnlink.reverse();
+        nodesToUnlink = nodesToUnlink.filter(val => {
+            return (this._connectedNodes.indexOf(val) != -1);
+        });
         for (let i = 0; i < nodesToUnlink.length; i++) {
             const node = nodesToUnlink.shift();
-            if ((!node) || (!(nodesToUnlink[0] instanceof AudioNode)))
+            if (!node)
                 break;
-            node.disconnect(nodesToUnlink[0]);
+            node.disconnect();
+            this._connectedNodes.splice(this._connectedNodes.indexOf(node), 1);
         }
-        this._connectedNodes = [];
     }
     /**
      * Links **all** of the nodes together
@@ -169,14 +211,54 @@ class Sound {
      */
     linkNodes() {
         this.unlinkNodes();
-        var nodesToLink = [this.steroPanner, this.panner];
-        nodesToLink = nodesToLink.concat(this.nodes, this.source);
-        var linkTo = this.gain;
+        var nodesToLink = [this.context.destination, this.gain, this.steroPanner, this.panner];
+        nodesToLink = nodesToLink.concat(this.nodes);
+        nodesToLink.push(this.source);
+        nodesToLink.reverse();
         for (let i = 0; i < nodesToLink.length; i++) {
-            const node = nodesToLink[i];
-            node.connect(linkTo);
-            this._connectedNodes.push(node);
-            linkTo = node;
+            const node = nodesToLink.shift();
+            if (node)
+                this._connectedNodes.push(node);
+            if (!node || (!(nodesToLink[0] instanceof AudioNode)))
+                break;
+            node.connect(nodesToLink[0]);
+        }
+        this._connectedNodes = this._connectedNodes.filter((val) => { return val != this.context.destination; });
+    }
+    /**
+     * Adds the specified node at the front.
+     *
+     * *(the last effect for the sound to
+     * go through before reaching the main effects)*
+     *
+     * @param node The node to add
+     */
+    pushNode(node) {
+        this.nodes.unshift(node);
+        this.unlinkNodes();
+        this.linkNodes();
+    }
+    /**
+     * Removes a node from the stack
+     * If no node is provided it will pop the first effect from the stack.
+     * @param node The node to remove from the node stack (OPTIONAL)
+     * @returns The AudioNode or null
+     */
+    popNode(node) {
+        if (node) {
+            var idx = this.nodes.indexOf(node);
+            if (idx == -1)
+                return null;
+            this.nodes.splice(idx, 1);
+            this.unlinkNodes();
+            this.linkNodes();
+            return node;
+        }
+        else {
+            var tnode = this.nodes.pop() || null;
+            this.unlinkNodes();
+            this.linkNodes();
+            return tnode;
         }
     }
     // Sound Buffer Handling:
@@ -190,7 +272,7 @@ class Sound {
                     resolve(dta);
                 }, (err) => { reject(err); });
             }
-            if (typeof source == "string") {
+            else if (typeof source == "string" && !this.buffer) {
                 var lnk = window.location.origin + "/" + source;
                 if (isDirectURL(source))
                     lnk = source;
@@ -205,10 +287,11 @@ class Sound {
                 req.onerror = (ev) => { reject(ev.toString()); };
                 req.send(null);
             }
-            if (source instanceof AudioBuffer) {
+            else if (source instanceof AudioBuffer) {
                 resolve(source);
             }
-            reject("Invalid Source Type.");
+            else
+                reject("Invalid Source Type.");
         });
     }
     // Sound Source Making:
@@ -220,9 +303,10 @@ class Sound {
         }
         source = ctx.createBufferSource();
         source.buffer = buffer; // @ts-ignore
+        this.buffer = buffer;
         this._hasPlayedYet = false;
-        this.linkNodes();
         this.source = source;
+        this.linkNodes();
         if (this.onload instanceof Function)
             this.onload.call(null, buffer, source);
     }
@@ -268,7 +352,11 @@ class Sound {
             throw new Error("The Sound hasn't finished loading yet!");
         this.saveOffset = this.context.currentTime;
         this.context.suspend(); // like pause timer? (i guess?)
-        this.source.stop();
+        try {
+            this.source.stop();
+        }
+        catch (e) { }
+        ;
         this.makeSourceNode();
         if (this.onended instanceof Function)
             this.onended(null);
@@ -281,7 +369,11 @@ class Sound {
             throw new Error("The Sound hasn't finished loading yet!");
         this.saveOffset = 0;
         this.context.suspend();
-        this.source.stop();
+        try {
+            this.source.stop();
+        }
+        catch (e) { }
+        ;
         this.makeSourceNode();
         if (this.onended instanceof Function)
             this.onended(null);
@@ -303,3 +395,7 @@ class Sound {
     }
 }
 exports.Sound = Sound;
+if (window) {
+    // @ts-ignore
+    window.Sound = Sound;
+}
