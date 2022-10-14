@@ -1,0 +1,25 @@
+{
+  "name": "simplsnd",
+  "version": "1.0.0",
+  "description": "A (primitive) way of playing sounds that can be extended to your liking",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "types": "index.d.ts",
+  "keywords": [
+    "simple",
+    "audio",
+    "audiolib",
+    "audio",
+    "library",
+    "soundlib",
+    "wrapper",
+    "primitive"
+  ],
+  "engines": {
+    "node": ">=10.0.0"
+  },
+  "author": "StudioR",
+  "license": "MIT"
+}
